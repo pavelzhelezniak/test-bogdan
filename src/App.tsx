@@ -1,12 +1,10 @@
 import { useState, useMemo } from 'react';
 import { Table, Input, Select, Space } from 'antd';
-import { ColumnsType, PaginationProps } from 'antd/es/table';
+import { ColumnsType } from 'antd/es/table';
 import { SorterResult, SortOrder } from 'antd/es/table/interface';
 import './App.css';
-import { useQuery } from 'react-query';
 import { ITodo } from './types';
-import { createFetch } from './utils';
-import { API_URL } from './constants';
+import { useQueryTodosList } from './hooks/useQueryTodosList';
 
 function App() {
   const [sortedInfo, setSortedInfo] = useState<SorterResult<ITodo>>({});
@@ -15,7 +13,7 @@ function App() {
   const [titleFilter, setTitleFilter] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
-  const { data } = useQuery('users', createFetch<ITodo[]>(`${API_URL}todos`));
+  const { data } = useQueryTodosList();
 
   const preparedDataSource: ITodo[] = useMemo(() => {
     let dataSource: ITodo[] = data || [];
@@ -57,24 +55,12 @@ function App() {
       width: 200,
       sortOrder: sortedInfo.columnKey === 'title' ? sortedInfo.order : null,
       sorter: (a, b) => a.title.length - b.title.length,
-      //   if (a.title > b.title) {
-      //     return 1;
-      //   }
-      //   if (a.title < b.title) {
-      //     return -1;
-      //   }
-      //   return 0;
-      // },
     },
     {
       title: 'completed',
       dataIndex: 'completed',
       key: 'completed',
-      render: (data) => (data ? 'true' : 'false'),
-      onFilter: (e) => {
-        console.log('onFilter', e);
-        return true;
-      },
+      render: (completed) => (completed ? 'true' : 'false'),
       width: 50,
     },
   ];
@@ -127,7 +113,6 @@ function App() {
                 },
               ]}
               onChange={(e) => {
-                //  console.log('Completed value', e);
                 setCompletedFilter(e ?? null);
                 resetPage();
               }}
@@ -153,7 +138,10 @@ function App() {
               allowClear
               onChange={(e) => {
                 setSelectOrderValue(e);
-
+                setSortedInfo((prev) => ({
+                  ...prev,
+                  columnKey: e,
+                }));
                 resetPage();
               }}
             />
@@ -167,10 +155,10 @@ function App() {
               options={selectOptions}
               onChange={(e) => {
                 if (e && selectOrderValue) {
-                  setSortedInfo({
-                    columnKey: selectOrderValue,
+                  setSortedInfo((prev) => ({
+                    ...prev,
                     order: e,
-                  });
+                  }));
                 }
                 resetPage();
               }}
@@ -187,20 +175,15 @@ function App() {
           defaultPageSize: 15,
           pageSizeOptions: [15, 30, 50, 100],
         }}
-        onChange={(pagination, filters, sorter, extra) => {
-          console.log('pagination', pagination);
-          console.log('filters', filters);
-          console.log('sorter', sorter);
-          console.log('extra', extra);
+        onChange={(pagination, _filters, sorter, extra) => {
           if (extra.action === 'sort') {
-            // setSortedInfo(sorter as SorterResult<ITodo>);
-            setSortedInfo({
-              ...sorter,
-              order: sortedInfo.order,
-            } as SorterResult<ITodo>);
+            setSortedInfo(sorter as SorterResult<ITodo>);
           }
-          if (extra.action === 'paginate') {
-            setCurrentPage(pagination.current as PaginationProps);
+          if (
+            extra.action === 'paginate' &&
+            typeof pagination.current === 'number'
+          ) {
+            setCurrentPage(pagination.current);
           }
         }}
       />
